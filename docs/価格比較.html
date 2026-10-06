@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>価格比較ツール</title>
+    <style>
+        body {
+            font-family: "Segoe UI", sans-serif;
+            background: #f5f5f5;
+            padding: 16px;
+            margin: 0;
+        }
+
+        h2 {
+            margin-bottom: 10px;
+            font-size: 1.3em;
+            text-align: center;
+        }
+
+        /* ✅ チェックボックスを横並び・中央寄せ */
+        .unit-select {
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 30px;
+            flex-wrap: nowrap;
+            font-size: 1.1em;
+        }
+
+        input[type="checkbox"] {
+            transform: scale(1.3);
+            margin-right: 6px;
+        }
+
+        /* ✅ テーブルを完全にスクロール可能に */
+        .table-container {
+            overflow-x: hidden;
+            /* ✅ スクロールを禁止 */
+            width: 100%;
+            border-radius: 8px;
+        }
+
+        table {
+            width: 100%;
+            min-width: 300px;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            font-size: 1em;
+        }
+
+
+        th,
+        td {
+            border-bottom: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+
+        th {
+            background-color: #f0f0f0;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+
+        tr.highlight {
+            background-color: #d1ffd1 !important;
+        }
+
+        /* ✅ 入力時にズームしない（font-size 16px以上必須） */
+        input[type="number"] {
+            width: 90%;
+            padding: 6px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            -webkit-text-size-adjust: 100%;
+        }
+
+        input[type="number"]:focus {
+            outline: none;
+        }
+
+        /* Chrome, Edge, Safari */
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+
+        button {
+            display: block;
+            width: 100%;
+            margin-top: 14px;
+            padding: 12px;
+            border: none;
+            background-color: #0078d7;
+            color: white;
+            border-radius: 6px;
+            font-size: 1.1em;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #005fa3;
+        }
+
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+
+            .unit-select {
+                gap: 20px;
+            }
+
+            input[type="number"] {
+                width: 80%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <h2>価格比較ツール</h2>
+
+    <!-- ✅ 単位選択を横並びに -->
+    <div class="unit-select">
+        <label><input type="checkbox" id="unitG" checked> g 単位</label>
+        <label><input type="checkbox" id="unitPcs"> 個 単位</label>
+    </div>
+
+    <div class="table-container">
+        <table id="priceTable">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th id="qtyLabel">重さ（g）</th>
+                    <th>価格（円）</th>
+                    <th>単位（円）</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <button id="resetBtn">リセット</button>
+
+    <script>
+        const tableBody = document.querySelector('#priceTable tbody');
+        const unitG = document.getElementById('unitG');
+        const unitPcs = document.getElementById('unitPcs');
+        const qtyLabel = document.getElementById('qtyLabel');
+        const resetBtn = document.getElementById('resetBtn');
+
+        // ===== 単位切り替え =====
+        function setUnit(unit) {
+            if (unit === 'g') {
+                unitG.checked = true;
+                unitPcs.checked = false;
+                qtyLabel.textContent = '重さ(g)';
+            } else {
+                unitG.checked = false;
+                unitPcs.checked = true;
+                qtyLabel.textContent = '個数';
+            }
+            recalcAllRows();
+        }
+
+        unitG.addEventListener('change', () => {
+            if (unitG.checked) setUnit('g');
+            else setUnit('pcs');
+        });
+        unitPcs.addEventListener('change', () => {
+            if (unitPcs.checked) setUnit('pcs');
+            else setUnit('g');
+        });
+
+        // ===== 行追加 =====
+        function addRow() {
+            const row = document.createElement('tr');
+            const rowIndex = tableBody.children.length + 1;
+            row.innerHTML = `
+            <td>${rowIndex}</td>
+            <td><input type="number" class="quantity" min="0" step="0.01"></td>
+            <td><input type="number" class="price" min="0" step="0.01"></td>
+            <td><input type="number" class="perUnit" readonly></td>
+        `;
+
+            const qtyInput = row.querySelector('.quantity');
+            const priceInput = row.querySelector('.price');
+
+            [qtyInput, priceInput].forEach(input => {
+                input.addEventListener('input', () => {
+                    updateRow(row);
+                    if (row === tableBody.lastElementChild && (qtyInput.value || priceInput.value)) {
+                        addRow();
+                    }
+                });
+            });
+
+            tableBody.appendChild(row);
+        }
+
+        // ===== 行計算 =====
+        function updateRow(row) {
+            const qty = parseFloat(row.querySelector('.quantity').value);
+            const price = parseFloat(row.querySelector('.price').value);
+            const perUnit = row.querySelector('.perUnit');
+
+            if (!isNaN(qty) && !isNaN(price) && qty > 0 && price > 0) {
+                let unitPrice = price / qty;
+
+                // ✅ 「g」の場合は単位あたりを100倍
+                if (unitG.checked) {
+                    unitPrice *= 100;
+                }
+
+                // ✅ 小数点第2位まで表示
+                perUnit.value = unitPrice.toFixed(2);
+            } else {
+                perUnit.value = '';
+            }
+
+            highlightCheapest();
+        }
+
+
+        // ===== 最安値ハイライト =====
+        function highlightCheapest() {
+            let min = Infinity;
+            let minRow = null;
+
+            tableBody.querySelectorAll('tr').forEach(row => {
+                const val = parseFloat(row.querySelector('.perUnit').value);
+                row.classList.remove('highlight');
+                if (!isNaN(val) && val > 0 && val < min) {
+                    min = val;
+                    minRow = row;
+                }
+            });
+
+            if (minRow) minRow.classList.add('highlight');
+        }
+
+        // ===== 全行再計算 =====
+        function recalcAllRows() {
+            tableBody.querySelectorAll('tr').forEach(row => updateRow(row));
+        }
+
+        // ===== リセット =====
+        resetBtn.addEventListener('click', () => {
+            tableBody.innerHTML = '';
+            addRow();
+            setUnit('g');
+        });
+
+        // ===== 初期化 =====
+        addRow();
+    </script>
+
+</body>
+
+</html>

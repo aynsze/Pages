@@ -1,0 +1,750 @@
+<!-- sql-playground.html -->
+<!-- bk7 -->
+<!-- SQL文をデモする単独HTML -->
+
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SQL Playground</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #ffffff;
+      --panel: #f6f8fa;
+      --border: #d1d9e0;
+      --text: #1f2328;
+      --muted: #59636e;
+      --accent: #0969da;
+      --button: #1f883d;
+      --button-hover: #1a7f37;
+      --error-bg: #ffebe9;
+      --error-text: #cf222e;
+    }
+
+    /* @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0d1117;
+        --panel: #161b22;
+        --border: #30363d;
+        --text: #e6edf3;
+        --muted: #8d96a0;
+        --accent: #4493f8;
+        --button: #238636;
+        --button-hover: #2ea043;
+        --error-bg: #3d1719;
+        --error-text: #ff7b72;
+      }
+    } */
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 18px 16px 25px;
+      background: var(--bg);
+      color: var(--text);
+      font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+
+    .page-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .page-header h1 {
+      margin: 0;
+      font-size: 22px;
+    }
+
+    .page-header a {
+      color: var(--accent);
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .page-header a:hover {
+      text-decoration: underline;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 16px;
+    }
+
+    .section {
+      margin-bottom: 18px;
+    }
+
+    .section-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 12px;
+    }
+
+    .tab {
+      appearance: none;
+      border: 0;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      padding: 7px 12px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font: inherit;
+    }
+
+    #previewTab {
+      width: 74px;
+    }
+
+    .tab[aria-selected="true"] {
+      color: var(--text);
+      border-bottom-color: var(--accent);
+      font-weight: 600;
+    }
+
+    .panel {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .panel-inner {
+      height: 263px;
+      padding: 12px;
+    }
+
+    #previewPanel,
+    #resultPanel {
+      overflow: hidden;
+      padding-right: 0;
+    }
+
+    #editPanel {
+      overflow: auto;
+      padding-top: 4px;
+    }
+
+    .table-wrap {
+      height: 100%;
+      overflow: auto;
+    }
+
+    #previewPanel thead th,
+    #resultOutput thead th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      white-space: nowrap;
+      padding-right: 12px;
+    }
+
+    th,
+    td {
+      text-align: left;
+      padding: 7px 10px;
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+
+    th:first-child,
+    td:first-child {
+      border-left: 1px solid var(--border);
+    }
+
+    thead th {
+      border-top: 1px solid var(--border);
+    }
+
+    th {
+      background: var(--panel);
+      font-weight: 600;
+    }
+
+    .empty {
+      color: var(--muted);
+    }
+
+    textarea {
+      display: block;
+      width: 100%;
+      min-height: 140px;
+      resize: vertical;
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg);
+      color: var(--text);
+      font: 13px/1.55 ui-monospace, SFMono-Regular, Consolas, monospace;
+    }
+
+    #sqlEditor {
+      height: 80px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+    }
+
+    #sqlEditor .cm-editor {
+      height: 100%;
+      font-size: 13px;
+    }
+
+    #sqlEditor .cm-scroller {
+      overflow: auto;
+      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    }
+
+    #sqlEditor .cm-editor.cm-focused {
+      outline: 2px solid var(--accent);
+      outline-offset: -2px;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      margin: 10px 0 8px;
+    }
+
+    button.action {
+      appearance: none;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 7px 12px;
+      background: var(--panel);
+      color: var(--text);
+      cursor: pointer;
+      font: inherit;
+    }
+
+    button.action:hover {
+      filter: brightness(.97);
+    }
+
+    button.primary {
+      border-color: var(--button);
+      background: var(--button);
+      color: white;
+      font-weight: 600;
+    }
+
+    button.primary:hover {
+      background: var(--button-hover);
+    }
+
+    button:disabled {
+      opacity: .6;
+      cursor: wait;
+    }
+
+    p {
+      margin: 8px 0;
+    }
+
+    .hint,
+    .status,
+    .result-meta {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .status.error {
+      color: var(--error-text);
+      background: var(--error-bg);
+      border-radius: 6px;
+      padding: 8px 10px;
+    }
+
+    code {
+      font: 13px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace;
+    }
+  </style>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "@codemirror/state": "https://esm.sh/@codemirror/state@6.5.2"
+    }
+  }
+</script>
+</head>
+
+<body>
+  <header class="page-header">
+    <h1>SQL Playground</h1>
+    <a href="https://github.com/aynsze/Code-Reference/blob/main/docs/06_SQL.md" target="_blank" rel="noopener noreferrer">学習ガイド ↗</a>
+  </header>
+
+  <section class="section" aria-labelledby="dataHeading">
+    <div class="section-heading">
+      <h2 id="dataHeading">テーブル</h2>
+      <span class="hint">テーブル名：<code>ingredients</code></span>
+    </div>
+
+    <div class="tabs" role="tablist" aria-label="テーブルの表示方法">
+      <button class="tab" id="previewTab" role="tab" aria-selected="true" aria-controls="previewPanel">Preview</button>
+      <button class="tab" id="editTab" role="tab" aria-selected="false" aria-controls="editPanel">Edit</button>
+    </div>
+
+    <div class="panel">
+      <div class="panel-inner" id="previewPanel" role="tabpanel" aria-labelledby="previewTab">
+        <div class="table-wrap" id="tablePreview"></div>
+      </div>
+      <div class="panel-inner" id="editPanel" role="tabpanel" aria-labelledby="editTab" hidden>
+        <p class="hint">1行目を列名として読み込みます。タブ区切り（TSV）またはカンマ区切り（CSV）に対応します。</p>
+        <textarea id="dataInput" spellcheck="false" aria-label="TSVまたはCSVデータ"></textarea>
+        <div class="actions">
+          <button class="action primary" id="loadDataButton">データを読み込む</button>
+          <span class="hint">読み込むと、既存の <code>ingredients</code> テーブルを置き換えます。</span>
+        </div>
+        <div id="dataStatus" class="status" role="status"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="sqlHeading">
+    <div class="section-heading">
+      <h2 id="sqlHeading">SQL</h2>
+    </div>
+    <div id="sqlEditor" role="group" aria-label="SQL文"></div>
+    <div class="actions">
+      <button class="action primary" id="runButton" disabled>SQLを実行</button>
+      <button class="action" id="resetButton">サンプルに戻す</button>
+      <div id="sqlStatus" class="status" role="status"></div>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="resultHeading">
+    <div class="section-heading">
+      <h2 id="resultHeading">実行結果</h2>
+      <span id="resultMeta" class="result-meta"></span>
+    </div>
+    <div class="panel">
+      <div class="panel-inner" id="resultPanel">
+        <div class="table-wrap" id="resultOutput">
+          <div class="empty">SQLを実行すると、ここに結果が表示されます。</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script src="https://cdn.jsdelivr.net/npm/sql.js@1.13.0/dist/sql-wasm.js"></script>
+  <script type="module">
+    import { basicSetup, EditorView } from "https://esm.sh/codemirror@6.0.1?external=@codemirror/state";
+    import { schemaCompletionSource, SQLite } from "https://esm.sh/@codemirror/lang-sql@6.10.0?external=@codemirror/state";
+    import { Compartment } from "@codemirror/state";
+
+    (() => {
+      "use strict";
+
+      function createSqlCompletion(schema) {
+        return [
+          SQLite.language,
+          SQLite.language.data.of({
+            autocomplete: schemaCompletionSource({
+              dialect: SQLite,
+              schema,
+              defaultTable: "ingredients"
+            })
+          })
+        ];
+      }
+
+      const sampleTSV = "id\\tname\\tcategory\\tprice\\n1\\t鶏もも肉\\t肉\\t250\\n2\\tにんじん\\t野菜\\t\\n3\\t豚こま肉\\t肉\\t80\\n4\\t玉ねぎ\\t野菜\\t80\\n5\\t鶏むね肉\\t肉\\t180";
+      const dataInput = document.getElementById("dataInput");
+      const tablePreview = document.getElementById("tablePreview");
+      const previewTab = document.getElementById("previewTab");
+      const editTab = document.getElementById("editTab");
+      const previewPanel = document.getElementById("previewPanel");
+      const editPanel = document.getElementById("editPanel");
+      const loadDataButton = document.getElementById("loadDataButton");
+      const runButton = document.getElementById("runButton");
+      const resetButton = document.getElementById("resetButton");
+      const sqlSchemaCompartment = new Compartment();
+      const sqlEditor = new EditorView({
+        parent: document.getElementById("sqlEditor"),
+        doc: "SELECT *\nFROM ingredients;",
+        extensions: [
+          basicSetup,
+          sqlSchemaCompartment.of(createSqlCompletion({}))
+        ]
+      });
+      const sqlStatus = document.getElementById("sqlStatus");
+      const dataStatus = document.getElementById("dataStatus");
+      const resultOutput = document.getElementById("resultOutput");
+      const resultMeta = document.getElementById("resultMeta");
+
+      let db = null;
+
+      function setStatus(element, message, isError = false) {
+        element.textContent = message;
+        element.classList.toggle("error", isError);
+      }
+
+      function switchTab(tab) {
+        const showPreview = tab === "preview";
+        previewTab.setAttribute("aria-selected", String(showPreview));
+        editTab.setAttribute("aria-selected", String(!showPreview));
+        previewPanel.hidden = !showPreview;
+        editPanel.hidden = showPreview;
+      }
+
+      previewTab.addEventListener("click", () => switchTab("preview"));
+      editTab.addEventListener("click", () => switchTab("edit"));
+
+      function makeTable(columns, rows) {
+        const table = document.createElement("table");
+        const thead = document.createElement("thead");
+        const headerRow = document.createElement("tr");
+
+        columns.forEach((column) => {
+          const th = document.createElement("th");
+          th.textContent = column;
+          headerRow.appendChild(th);
+        });
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+
+        const tbody = document.createElement("tbody");
+        rows.forEach((row) => {
+          const tr = document.createElement("tr");
+          row.forEach((value) => {
+            const td = document.createElement("td");
+            td.textContent = value === null || value === undefined ? "NULL" : String(value);
+            tr.appendChild(td);
+          });
+          tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        return table;
+      }
+
+      function showTable(target, columns, rows, emptyMessage) {
+        target.replaceChildren();
+        if (!columns.length) {
+          const empty = document.createElement("div");
+          empty.className = "empty";
+          empty.textContent = emptyMessage;
+          target.appendChild(empty);
+          return;
+        }
+        target.appendChild(makeTable(columns, rows));
+        if (rows.length === 0) {
+          const empty = document.createElement("div");
+          empty.className = "empty";
+          empty.textContent = "データはありません。";
+          target.appendChild(empty);
+        }
+      }
+
+      function refreshPreview() {
+        try {
+          const exists = db.exec("SELECT name FROM sqlite_master WHERE type='table' AND name='ingredients';");
+          if (!exists.length || !exists[0].values.length) {
+            showTable(tablePreview, [], [], "ingredients テーブルがありません。EditからTSV・CSVを読み込んでください。");
+            return;
+          }
+          const result = db.exec('SELECT * FROM "ingredients" LIMIT 200;');
+          if (!result.length) {
+            showTable(tablePreview, [], [], "テーブルを表示できません。");
+            return;
+          }
+          showTable(tablePreview, result[0].columns, result[0].values, "データはありません。");
+        } catch (error) {
+          showTable(tablePreview, [], [], "テーブルを表示できません。");
+        }
+      }
+
+      function parseDelimited(text) {
+        const firstLine = text.split(/\r?\n/, 1)[0] || "";
+        const delimiter = firstLine.includes("\t") ? "\t" : ",";
+        const rows = [];
+        let row = [];
+        let field = "";
+        let inQuotes = false;
+
+        for (let i = 0; i < text.length; i++) {
+          const char = text[i];
+          if (char === '"') {
+            if (inQuotes && text[i + 1] === '"') {
+              field += '"';
+              i++;
+            } else {
+              inQuotes = !inQuotes;
+            }
+          } else if (char === delimiter && !inQuotes) {
+            row.push(field);
+            field = "";
+          } else if ((char === "\n" || char === "\r") && !inQuotes) {
+            if (char === "\r" && text[i + 1] === "\n") i++;
+            row.push(field);
+            if (row.some((cell) => cell.length > 0)) rows.push(row);
+            row = [];
+            field = "";
+          } else {
+            field += char;
+          }
+        }
+        row.push(field);
+        if (row.some((cell) => cell.length > 0)) rows.push(row);
+        return rows;
+      }
+
+      function updateSqlSchema() {
+        const schema = {};
+
+        if (db) {
+          const tables = db.exec(`
+      SELECT name
+      FROM sqlite_master
+      WHERE type = 'table'
+        AND name NOT LIKE 'sqlite_%';
+    `);
+
+          if (tables.length > 0) {
+            tables[0].values.forEach(([tableName]) => {
+              const columns = db.exec(
+                `PRAGMA table_info(${quoteIdentifier(tableName)});`
+              );
+
+              schema[tableName] = columns.length > 0
+                ? columns[0].values.map((column) => String(column[1]))
+                : [];
+            });
+          }
+        }
+
+        sqlEditor.dispatch({
+          effects: sqlSchemaCompartment.reconfigure(createSqlCompletion(schema))
+        });
+      }
+
+      function quoteIdentifier(identifier) {
+        return '"' + identifier.replace(/"/g, '""') + '"';
+      }
+
+      function loadData() {
+        const inputText = dataInput.value.replace(/^(?:\r?\n)+|(?:\r?\n)+$/g, "");
+
+        if (!inputText) {
+          try {
+            db.run('DROP TABLE IF EXISTS "ingredients";');
+            refreshPreview();
+            updateSqlSchema();
+            setStatus(
+              dataStatus,
+              "ingredients テーブルを削除しました。CREATE TABLE でテーブルを作成できます。"
+            );
+            setStatus(sqlStatus, "");
+            switchTab("preview");
+          } catch (error) {
+            setStatus(dataStatus, `読み込みエラー: ${error.message}`, true);
+          }
+          return;
+        }
+
+        const parsed = parseDelimited(inputText);
+        if (parsed.length < 2) {
+          setStatus(
+            dataStatus,
+            "列名の行と、データ行を1行以上入力してください。空のままでも実行できます。",
+            true
+          );
+          return;
+        }
+
+        let columns = parsed[0].map((name, index) => name.trim() || `column_${index + 1}`);
+        if (new Set(columns).size !== columns.length) {
+          setStatus(dataStatus, "列名が重複しています。列名をそれぞれ異なる名前にしてください。", true);
+          return;
+        }
+        const width = columns.length;
+        const rows = parsed.slice(1);
+        if (rows.some((row) => row.length !== width)) {
+          setStatus(dataStatus, "行によって列数が異なります。TSV・CSVの内容を確認してください。", true);
+          return;
+        }
+
+        let statement = null;
+        try {
+          db.run('DROP TABLE IF EXISTS "ingredients";');
+          db.run(`CREATE TABLE "ingredients" (${columns.map((name) => `${quoteIdentifier(name)} TEXT`).join(", ")});`);
+          statement = db.prepare(
+            `INSERT INTO "ingredients" (${columns.map(quoteIdentifier).join(", ")}) VALUES (${columns.map(() => "?").join(", ")});`
+          );
+          db.run("BEGIN TRANSACTION;");
+          rows.forEach((row) =>
+            statement.run(row.map((value) => value === "" ? null : value))
+          );
+          statement.free();
+          statement = null;
+          db.run("COMMIT;");
+          refreshPreview();
+          updateSqlSchema();
+          setStatus(dataStatus, `${rows.length}行を読み込みました。`);
+          setStatus(sqlStatus, "");
+          switchTab("preview");
+        } catch (error) {
+          if (statement) {
+            try { statement.free(); } catch (_) { }
+          }
+          try { db.run("ROLLBACK;"); } catch (_) { }
+          setStatus(dataStatus, `読み込みエラー: ${error.message}`, true);
+        }
+      }
+
+      function renderResults(results) {
+        resultOutput.replaceChildren();
+        if (!results.length) {
+          const message = document.createElement("div");
+          message.className = "empty";
+          message.textContent = "SQLを実行しました。表示する行データはありません。";
+          resultOutput.appendChild(message);
+          resultMeta.textContent = "実行完了";
+          return;
+        }
+
+        results.forEach((result, index) => {
+          if (index > 0) {
+            const spacer = document.createElement("div");
+            spacer.style.height = "16px";
+            resultOutput.appendChild(spacer);
+          }
+          resultOutput.appendChild(makeTable(result.columns, result.values));
+          const count = document.createElement("p");
+          count.className = "result-meta";
+          count.textContent = `${result.values.length}行`;
+          resultOutput.appendChild(count);
+        });
+        const totalRows = results.reduce((sum, result) => sum + result.values.length, 0);
+        resultMeta.textContent = `${results.length}件の結果セット ・ 合計${totalRows}行`;
+      }
+
+      function runSQL() {
+        const sql = sqlEditor.state.doc.toString().trim();
+        if (!sql) {
+          setStatus(sqlStatus, "SQL文を入力してください。", true);
+          return;
+        }
+        try {
+          const results = db.exec(sql);
+
+          if (results.length > 0) {
+            renderResults(results);
+          } else {
+            const createMatch = sql.match(
+              /\bCREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:"([^"]+)"|`([^`]+)`|\[([^\]]+)\]|([A-Za-z_]\w*))/i
+            );
+
+            if (createMatch) {
+              const tableName = createMatch
+                .slice(1)
+                .find((name) => name !== undefined);
+
+              const escapedName = tableName.replace(/"/g, '""');
+              const schema = db.exec(
+                `PRAGMA table_info("${escapedName}");`
+              );
+
+              if (schema.length > 0 && schema[0].values.length > 0) {
+                const columns = schema[0].values.map((row) => String(row[1]));
+
+                showTable(
+                  resultOutput,
+                  columns,
+                  [],
+                  "テーブルを作成しました。"
+                );
+
+                resultMeta.textContent = "テーブル作成・0行";
+              } else {
+                renderResults(results);
+              }
+            } else {
+              renderResults(results);
+            }
+          }
+
+          refreshPreview();
+          updateSqlSchema();
+          setStatus(sqlStatus, "SQLを実行しました。");
+        } catch (error) {
+          setStatus(sqlStatus, `SQLエラー: ${error.message}`, true);
+          resultOutput.replaceChildren();
+          const message = document.createElement("div");
+          message.className = "empty";
+          message.textContent = error.message;
+          resultOutput.appendChild(message);
+          resultMeta.textContent = "実行エラー";
+        }
+      }
+
+      function resetSample() {
+        dataInput.value = sampleTSV.replace(/\\t/g, "\t").replace(/\\n/g, "\n");
+        sqlEditor.dispatch({
+          changes: {
+            from: 0,
+            to: sqlEditor.state.doc.length,
+            insert: "SELECT *\nFROM ingredients;"
+          }
+        });
+        loadData();
+        setStatus(sqlStatus, "");
+        resultOutput.innerHTML = '<div class="empty">SQLを実行すると、ここに結果が表示されます。</div>';
+        resultMeta.textContent = "";
+      }
+
+      loadDataButton.addEventListener("click", loadData);
+      runButton.addEventListener("click", runSQL);
+      resetButton.addEventListener("click", resetSample);
+
+      async function init() {
+        try {
+          if (typeof initSqlJs !== "function") {
+            throw new Error("SQLiteライブラリを読み込めません。インターネット接続を確認してください。");
+          }
+          const SQL = await initSqlJs({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/sql.js@1.13.0/dist/${file}`
+          });
+          db = new SQL.Database();
+          updateSqlSchema();
+          runButton.disabled = false;
+          resetSample();
+        } catch (error) {
+          setStatus(sqlStatus, `初期化エラー: ${error.message}`, true);
+          runButton.disabled = true;
+          loadDataButton.disabled = true;
+        }
+      }
+
+      init();
+    })();
+  </script>
+</body>
+
+</html>

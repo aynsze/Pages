@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>チラシ</title>
+</head>
+
+<body>
+
+  <!-- 入力欄 -->
+  <input type="text" id="textInput" placeholder="文字列を入力">
+  <button id="saveButton">保存</button>
+
+  <!-- 画像の表示 -->
+  <div id="images"></div>
+
+  <script>
+    const today = new Date();
+    const year = today.getFullYear();
+
+    // 今週の火曜日と土曜日の日付を取得
+    const tuesday = new Date(today);
+    tuesday.setDate(today.getDate() + (2 - (today.getDay() || 7) + 7) % 7);
+
+    const saturday = new Date(today);
+    saturday.setDate(today.getDate() + (6 - (today.getDay() || 7) + 7) % 7);
+
+    // MM/YYMMDD 形式の日付を作成
+    function formatDate(date) {
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const yearShort = String(date.getFullYear()).slice(-2);
+      const day = String(date.getDate()).padStart(2, "0");
+
+      return `${month}/${yearShort}${month}${day}`;
+    }
+
+    // localStorageから入力値を取得
+    const textInput = document.getElementById("textInput");
+    textInput.value = localStorage.getItem("text") || "";
+
+    // 画像を表示する関数
+    function showImages() {
+
+      const text = textInput.value.trim();
+
+      if (!text) {
+        document.getElementById("images").textContent = "文字列を入力してください。";
+        return;
+      }
+
+      // localStorageに保存
+      localStorage.setItem("text", text);
+
+      const baseUrl = `https://www.super${text}.com/wp-content/uploads/${year}/`;
+
+      const images = [
+        `${baseUrl}${formatDate(tuesday)}_${text}_omote.jpg`,
+        `${baseUrl}${formatDate(tuesday)}_${text}_ura.jpg`,
+        `${baseUrl}${formatDate(saturday)}_${text}_omote.jpg`,
+        `${baseUrl}${formatDate(saturday)}_${text}_ura.jpg`
+      ];
+
+      // 画像を表示
+      document.getElementById("images").innerHTML = images
+        .map(url => `
+          <div>
+            <img
+              src="${url}"
+              style="max-width: 100%;"
+              onerror="this.outerHTML = 'まだ公開されていません';"
+            >
+          </div>
+        `)
+        .join("");
+    }
+
+    // 保存ボタン
+    document.getElementById("saveButton").addEventListener("click", showImages);
+
+    // 保存済みの値があれば初期表示
+    if (textInput.value.trim()) {
+      showImages();
+    }
+
+  </script>
+</body>
+
+</html>

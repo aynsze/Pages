@@ -1,5 +1,5 @@
 <!-- 単独HTML/OPAC予約.html -->
-<!-- bk9 -->
+<!-- bk10 -->
 <!-- 市立図書館のOPAC予約 -->
 
 <!DOCTYPE html>
@@ -7,7 +7,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- <meta name="viewport" content="width=device-width, initial-scale=1"> -->
     <title>OPAC予約</title>
 
     <style>
@@ -195,7 +195,7 @@
 
         @media (max-width: 600px) {
             body {
-                margin-top: 16px;
+                margin-top: 20px;
             }
 
             table {
@@ -522,6 +522,9 @@
                 updateSelectionSummary();
             }
 
+            currentAction = action;
+            currentNonce = createNonce();
+
             actionPost.value = action;
             nonceInput.value = currentNonce;
             passwordPost.value = password;
@@ -568,7 +571,7 @@
                     "GASのURL、デプロイ設定、通信状態を確認してください。"
                 );
 
-            }, 120000);
+            }, 200000);
 
             // フォーム送信
             HTMLFormElement.prototype.submit.call(form);

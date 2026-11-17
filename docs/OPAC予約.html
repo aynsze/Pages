@@ -210,10 +210,14 @@
                 padding: 7px 0;
             }
 
-            .summary-table tbody th:nth-child(1),
-            .summary-table td {
+            .summary-table tbody td {
                 padding: 5px 0;
                 font-size: 1.3em;
+            }
+
+            .summary-table tbody th:nth-child(1) {
+                padding: 0;
+                font-size: 1.5em;
             }
 
             .summary-table td:nth-child(3),
@@ -274,12 +278,11 @@
     </form>
 
     <iframe name="gasFrame" id="gasFrame" style="
-        position:absolute;
-        width:1px;
-        height:1px;
-        left:-10000px;
-        top:0;
-        border:0;
+        display:block;
+        width:100%;
+        height:150px;
+        border:1px solid red;
+        margin-top:10px;
     ">
     </iframe>
 

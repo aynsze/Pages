@@ -1,0 +1,1393 @@
+<!-- 単独HTML/OPAC予約.html -->
+<!-- bk9 -->
+<!-- 市立図書館のOPAC予約 -->
+
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>OPAC予約</title>
+
+    <style>
+        body {
+            max-width: 1100px;
+            margin: 30px auto;
+            padding: 0 16px;
+            font-family: sans-serif;
+            color: #222;
+        }
+
+        #gasUrlInput,
+        #passwordInput,
+        #extraTitles {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 8px;
+            margin-bottom: 10px;
+        }
+
+        #extraTitles {
+            resize: vertical;
+        }
+
+        button {
+            padding: 8px 18px;
+            cursor: pointer;
+            margin: 3px 4px 3px 0;
+        }
+
+        button:disabled {
+            cursor: wait;
+            opacity: 0.6;
+        }
+
+        #status {
+            margin: 12px 0;
+            color: #555;
+            white-space: pre-wrap;
+        }
+
+        /* ===== 表の共通設定 ===== */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            text-align: center;
+        }
+
+        /* ===== 予約・貸出状況の集計表 ===== */
+        .summary-wrap {
+            width: 100%;
+            overflow-x: auto;
+            margin-top: 8px;
+        }
+
+        .summary-table {
+            margin-top: 0;
+            table-layout: auto;
+            font-size: 0.9rem;
+        }
+
+        .summary-table th,
+        .summary-table td {
+            padding: 7px 5px;
+            vertical-align: middle;
+            white-space: nowrap;
+        }
+
+        .summary-table th {
+            background: #f3f3f3;
+            position: static;
+        }
+
+        .summary-table td:nth-child(4) {
+            background: #e8f5e9;
+        }
+
+        .summary-table td:nth-child(3),
+        .summary-table td:nth-child(4) {
+            padding-right: 0;
+            padding-left: 10px;
+        }
+
+        /* ===== 検索結果表 ===== */
+        .table-wrap {
+            width: 100%;
+            /* overflow-x: auto; */
+        }
+
+        .results-table {
+            margin-top: 16px;
+            table-layout: fixed;
+        }
+
+        .results-table th,
+        .results-table td {
+            padding: 8px;
+            vertical-align: top;
+            overflow-wrap: anywhere;
+        }
+
+        .results-table th {
+            background: #f3f3f3;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+
+        /* 予約カートに追加、予約数・貸出可・貸出中 */
+        .results-table th:nth-child(1),
+        .results-table td:nth-child(1),
+        .results-table th:nth-child(2),
+        .results-table td:nth-child(2),
+        .results-table th:nth-child(4),
+        .results-table td:nth-child(4),
+        .results-table th:nth-child(5),
+        .results-table td:nth-child(5),
+        .results-table th:nth-child(6),
+        .results-table td:nth-child(6) {
+            width: 3%;
+        }
+
+        /* タイトル */
+        .results-table th:nth-child(3),
+        .results-table td:nth-child(3) {
+            width: 25%;
+            text-align: left;
+        }
+
+        /* 予約状況 */
+        .results-table th:nth-child(7),
+        .results-table td:nth-child(7) {
+            width: 12%;
+        }
+
+        /* 予約順位・取置期限日・返却期限日 */
+        .results-table th:nth-child(8),
+        .results-table td:nth-child(8) {
+            width: 14%;
+        }
+
+        .results-table td.selection-cell input {
+            transform: scale(1.2);
+            margin: 0;
+        }
+
+        input[type="radio"]:disabled {
+            /* display: none; */
+            opacity: 0.25;
+            cursor: not-allowed;
+        }
+
+        /* ===== 予約状況のスタイル ===== */
+        /* 貸出中 */
+        tr.is-lending {
+            background-color: #ffbcbc;
+            /* background-color: #e8f3ff; */
+        }
+
+        /* 予約割当済 */
+        tr.is-assigned {
+            background-color: #e8f3ff;
+        }
+
+        /* 割当回送中 */
+        tr.is-forwarding {
+            /* background-color: #e8f5e9; */
+            background-color: #fff3e0;
+        }
+
+        /* ===== 他 ===== */
+        a {
+            color: #175ca5;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 600px) {
+            body {
+                margin-top: 16px;
+            }
+
+            table {
+                font-size: 0.85rem;
+            }
+
+            .results-table th,
+            .results-table td {
+                padding: 7px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- GAS URL -->
+    <input type="url" id="gasUrlInput" placeholder="GAS WebアプリのURL">
+
+    <!-- OPAC共通パスワード -->
+    <input type="password" id="passwordInput" placeholder="OPAC共通パスワード" maxlength="15" autocomplete="current-password">
+
+    <!-- 追加の検索条件 -->
+    <div>
+        <textarea id="extraTitles" rows="2" placeholder="追加で検索する書名・ISBN（カンマ区切り）"></textarea>
+    </div>
+
+    <!-- GASへ送信するフォーム -->
+    <form id="requestForm" method="post" target="gasFrame">
+
+        <input type="hidden" id="actionPost" name="action">
+        <input type="hidden" id="passwordPost" name="password">
+        <input type="hidden" id="extraTitlesPost" name="extraTitles">
+        <input type="hidden" id="cartItemsPost" name="cartItems">
+        <input type="hidden" id="existingResultsPost" name="existingResults">
+        <input type="hidden" id="nonce" name="nonce">
+
+        <button type="submit" id="searchButton">
+            検索・更新
+        </button>
+
+        <button type="button" id="cartButton">
+            予約カートに追加
+        </button>
+
+        <button type="button" id="refreshButton">
+            予約状況だけ更新
+        </button>
+
+    </form>
+
+    <iframe name="gasFrame" id="gasFrame" style="display:none"></iframe>
+
+    <p id="status"></p>
+
+    <div>
+        検索結果 <span id="count"></span>
+        <span id="updatedAt"></span>
+    </div>
+
+    <div class="summary-wrap">
+        <table class="summary-table">
+            <thead>
+                <tr>
+                    <th>利用者</th>
+                    <th>カート選択</th>
+                    <th>カート済み</th>
+                    <th>予約合計</th>
+                    <th>予約中</th>
+                    <th>回送中</th>
+                    <th>割当済</th>
+                    <th>貸出中</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                <tr>
+                    <th>➀</th>
+                    <td id="user1Selected">0</td>
+                    <td id="user1Cart">0（残10）</td>
+                    <td id="user1Reservation">0（残10）</td>
+                    <td id="user1Waiting">0</td>
+                    <td id="user1Forwarding">0</td>
+                    <td id="user1Assigned">0</td>
+                    <td id="user1Lending">0</td>
+                </tr>
+
+                <tr>
+                    <th>➁</th>
+                    <td id="user2Selected">0</td>
+                    <td id="user2Cart">0（残10）</td>
+                    <td id="user2Reservation">0（残10）</td>
+                    <td id="user2Waiting">0</td>
+                    <td id="user2Forwarding">0</td>
+                    <td id="user2Assigned">0</td>
+                    <td id="user2Lending">0</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="table-wrap">
+        <table class="results-table">
+            <thead>
+                <tr>
+                    <!-- 予約カート追加用 -->
+                    <th>➀</th>
+                    <th>➁</th>
+
+                    <!-------- 蔵書関連 -------->
+                    <th>タイトル</th>
+                    <!-- 予約数 -->
+                    <th>予</th>
+                    <!-- 貸出可 -->
+                    <th>可</th>
+                    <!-- 貸出中 -->
+                    <th>出</th>
+
+                    <!-------- 予約関連 -------->
+                    <th>予約状況</th>
+                    <!-- 予約順位・取置期限日・返却期限日 -->
+                    <th>予約順位</th>
+                </tr>
+            </thead>
+
+            <tbody id="resultsBody">
+                <tr>
+                    <td colspan="8">データがありません。</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        // ===== 保存キー =====
+        const STORAGE_KEYS = {
+            gasUrl: "opac_gas_url",
+            extraTitles: "opac_extra_titles",
+            results: "opac_results",
+            updatedAt: "opac_updated_at"
+        };
+
+        // ===== 要素取得 =====
+        const gasUrlInput =
+            document.getElementById("gasUrlInput");
+
+        const passwordInput =
+            document.getElementById("passwordInput");
+
+        const extraTitles =
+            document.getElementById("extraTitles");
+
+        const form =
+            document.getElementById("requestForm");
+
+        const actionPost =
+            document.getElementById("actionPost");
+
+        const passwordPost =
+            document.getElementById("passwordPost");
+
+        const extraTitlesPost =
+            document.getElementById("extraTitlesPost");
+
+        const cartItemsPost =
+            document.getElementById("cartItemsPost");
+
+        const existingResultsPost =
+            document.getElementById("existingResultsPost");
+
+        const nonceInput =
+            document.getElementById("nonce");
+
+        const searchButton =
+            document.getElementById("searchButton");
+
+        const cartButton =
+            document.getElementById("cartButton");
+
+        const refreshButton =
+            document.getElementById("refreshButton");
+
+        const statusElement =
+            document.getElementById("status");
+
+        const countElement =
+            document.getElementById("count");
+
+        const updatedAtElement =
+            document.getElementById("updatedAt");
+
+        const resultsBody =
+            document.getElementById("resultsBody");
+
+        // ===== 状態 =====
+        let currentNonce = "";
+        let currentAction = "";
+        let waiting = false;
+        let responseTimer = null;
+
+        let currentData = {
+            count: 0,
+            results: []
+        };
+
+        // 書籍ごとのカート選択
+        // キー：biblioid、値：利用者番号
+        const selectedUsers = new Map();
+
+        // ===== 初期表示 =====
+        function initialize() {
+
+            gasUrlInput.value =
+                localStorage.getItem(STORAGE_KEYS.gasUrl) || "";
+
+            extraTitles.value =
+                localStorage.getItem(STORAGE_KEYS.extraTitles) || "";
+
+            const savedResults =
+                localStorage.getItem(STORAGE_KEYS.results);
+
+            const savedUpdatedAt =
+                localStorage.getItem(STORAGE_KEYS.updatedAt);
+
+            if (savedResults) {
+                try {
+                    currentData = JSON.parse(savedResults);
+                    renderResults(currentData);
+                    showUpdatedAt(savedUpdatedAt);
+                } catch (error) {
+                    console.error(error);
+                }
+            }
+        }
+
+        // ===== 入力内容保存 =====
+        function saveInputs() {
+
+            localStorage.setItem(
+                STORAGE_KEYS.gasUrl,
+                gasUrlInput.value.trim()
+            );
+
+            localStorage.setItem(
+                STORAGE_KEYS.extraTitles,
+                extraTitles.value
+            );
+        }
+
+        gasUrlInput.addEventListener("change", saveInputs);
+        extraTitles.addEventListener("input", saveInputs);
+
+        // ===== 検索ボタン =====
+        form.addEventListener("submit", function (event) {
+            event.preventDefault();
+            sendRequest("search");
+        });
+
+        // ===== 予約カート追加ボタン =====
+        cartButton.addEventListener("click", function () {
+
+            const cartItems = [];
+
+            selectedUsers.forEach(function (user, biblioid) {
+                cartItems.push({
+                    user: user,
+                    biblioid: biblioid
+                });
+            });
+
+            if (cartItems.length === 0) {
+                showStatus("予約カートに追加する本を選択してください。");
+                return;
+            }
+
+            sendRequest("addToCart", cartItems);
+        });
+
+        // ===== 予約状況だけ更新ボタン =====
+        refreshButton.addEventListener("click", function () {
+
+            if (!currentData.results ||
+                currentData.results.length === 0) {
+                showStatus("先に「検索・更新」を実行してください。");
+                return;
+            }
+
+            sendRequest("refreshReservations");
+        });
+
+        // ===== GASへの送信共通処理 =====
+        function sendRequest(action, cartItems) {
+
+            if (waiting) return;
+
+            const gasUrl = gasUrlInput.value.trim();
+            const password = passwordInput.value;
+
+            if (!gasUrl) {
+                showStatus("GAS WebアプリのURLを入力してください。");
+                return;
+            }
+
+            if (!password) {
+                showStatus("OPAC共通パスワードを入力してください。");
+                return;
+            }
+
+            if (!/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec\/?$/.test(gasUrl)) {
+                showStatus("GASのWebアプリURLを確認してください。");
+                return;
+            }
+
+            if (action === "addToCart" && (!cartItems || cartItems.length === 0)) {
+                showStatus("予約カートに追加する本を選択してください。");
+                return;
+            }
+
+            saveInputs();
+
+            // 検索をやり直すたびにカート選択をリセット
+            if (action === "search") {
+                selectedUsers.clear();
+                updateSelectionSummary();
+            }
+
+            actionPost.value = action;
+            nonceInput.value = currentNonce;
+            passwordPost.value = password;
+            extraTitlesPost.value = extraTitles.value;
+
+            cartItemsPost.value =
+                action === "addToCart"
+                    ? JSON.stringify(cartItems)
+                    : "";
+
+            existingResultsPost.value =
+                action === "refreshReservations"
+                    ? JSON.stringify(currentData.results)
+                    : "";
+
+            form.action = gasUrl;
+
+            waiting = true;
+            setButtonsDisabled(true);
+
+            if (action === "search") {
+                searchButton.textContent = "検索中...";
+                showStatus("検索しています。しばらくお待ちください。");
+
+            } else if (action === "addToCart") {
+                cartButton.textContent = "追加中...";
+                showStatus("選択した本を予約カートに追加しています。");
+
+            } else {
+                refreshButton.textContent = "更新中...";
+                showStatus("予約状況を更新しています。");
+            }
+
+            clearTimeout(responseTimer);
+
+            responseTimer = setTimeout(function () {
+
+                if (!waiting) return;
+
+                finishRequest();
+
+                showStatus(
+                    "タイムアウト。GASから応答がありません。\n" +
+                    "GASのURL、デプロイ設定、通信状態を確認してください。"
+                );
+
+            }, 120000);
+
+            // フォーム送信
+            HTMLFormElement.prototype.submit.call(form);
+        }
+
+        // ===== 識別番号作成 =====
+        function createNonce() {
+
+            if (
+                window.crypto &&
+                window.crypto.randomUUID
+            ) {
+                return window.crypto.randomUUID();
+            }
+
+            return Date.now().toString(36) +
+                Math.random().toString(36).substring(2);
+        }
+
+        // ===== GASからの応答 =====
+        window.addEventListener("message", function (event) {
+            console.log("[受信診断] event.data:", event.data);
+
+            let data = event.data;
+
+            // 文字列で届いた場合にも対応
+            if (typeof data === "string") {
+                try {
+                    data = JSON.parse(data);
+                } catch (error) {
+                    return;
+                }
+            }
+
+            if (!data || typeof data !== "object") return;
+            if (data.nonce !== currentNonce) return;
+            if (!waiting) return;
+
+            finishRequest();
+
+            const payload = data.payload;
+
+            if (!payload || payload.success !== true) {
+                showStatus(
+                    payload && payload.error
+                        ? payload.error
+                        : "GASでエラーが発生しました。"
+                );
+
+                console.error("[受信診断] GASエラー:", payload);
+                return;
+            }
+
+            const resultData = payload.data || {};
+
+            // ===== 検索・更新 =====
+            if (currentAction === "search") {
+
+                currentData = resultData;
+                renderResults(currentData);
+                saveResults(currentData);
+
+                showStatus("✅ 検索・更新が完了しました。");
+
+                // 予約カート追加
+            } else if (currentAction === "addToCart") {
+
+                const successCount =
+                    Number(resultData.successCount || 0);
+
+                const failureCount =
+                    Number(resultData.failureCount || 0);
+
+                // 追加成功・カート済みの本を画面にも反映
+                (resultData.results || []).forEach(function (item) {
+
+                    if (!item.success) return;
+
+                    const biblioid = String(item.biblioid || "");
+
+                    // 選択解除
+                    selectedUsers.delete(biblioid);
+
+                    // 現在の検索結果を更新
+                    const target = currentData.results.find(function (result) {
+                        return String(result.biblioid || "") === biblioid;
+                    });
+
+                    if (target) {
+
+                        if (!Array.isArray(target.cartUsers)) {
+                            target.cartUsers = [];
+                        }
+
+                        const userNumber = Number(item.user);
+
+                        if (!target.cartUsers.map(Number).includes(userNumber)) {
+                            target.cartUsers.push(userNumber);
+                        }
+                    }
+                });
+
+                // 更新したカート情報を保存
+                saveResults(currentData);
+
+                updateSelectionSummary();
+                renderResults(currentData);
+
+                let message =
+                    "✅ 予約カートへの追加処理が終了しました。\n" +
+                    "追加成功：" + successCount + "件";
+
+                if (failureCount > 0) {
+                    message += "\n失敗：" + failureCount + "件";
+                }
+
+                message +=
+                    "\nOPACの予約カート画面で追加されていることを確認してください。";
+
+                showStatus(message);
+
+                // ===== 予約状況だけ更新 =====
+            } else if (currentAction === "refreshReservations") {
+
+                currentData = resultData;
+                renderResults(currentData);
+                saveResults(currentData);
+
+                showStatus("✅ 予約状況だけの更新が完了しました。");
+            }
+        });
+
+        // ===== 結果保存 =====
+        function saveResults(data) {
+
+            const updatedAt =
+                data.updatedAt || new Date().toISOString();
+
+            localStorage.setItem(
+                STORAGE_KEYS.results,
+                JSON.stringify(data)
+            );
+
+            localStorage.setItem(
+                STORAGE_KEYS.updatedAt,
+                updatedAt
+            );
+
+            showUpdatedAt(updatedAt);
+
+            showStatus("✅ 検索・更新が完了しました。");
+
+            console.log("[受信診断] 結果表示完了");
+        }
+
+        // ===== 通信終了処理 =====
+        function finishRequest() {
+
+            waiting = false;
+
+            clearTimeout(responseTimer);
+
+            setButtonsDisabled(false);
+
+            searchButton.textContent = "検索・更新";
+            cartButton.textContent = "予約カートに追加";
+            refreshButton.textContent = "予約状況だけ更新";
+
+            // 送信用パスワードだけ消去。
+            // 入力欄のパスワードはページを開いている間保持する。
+            passwordPost.value = "";
+        }
+
+        // ===== ボタンの有効・無効 =====
+        function setButtonsDisabled(disabled) {
+            searchButton.disabled = disabled;
+            cartButton.disabled = disabled;
+            refreshButton.disabled = disabled;
+        }
+
+        // ===== 利用者番号の表示記号 =====
+        function getUserPrefix(user) {
+
+            if (Number(user) === 1) return "➀ ";
+            if (Number(user) === 2) return "➁ ";
+
+            return "";
+        }
+
+        // ===== カート済み利用者の判定 =====
+        function isCartUser(item, userNumber) {
+
+            const users = Array.isArray(item.cartUsers)
+                ? item.cartUsers.map(Number)
+                : [];
+
+            return users.includes(Number(userNumber));
+        }
+
+        // ===== 予約状況セルの表示内容 =====
+        function getReservationDisplay(item) {
+
+            const lines = [];
+
+            // 貸出中
+            const lendingUsers = Array.isArray(item.lendingUsers)
+                ? item.lendingUsers
+                : [];
+
+            lendingUsers.forEach(function (user) {
+                lines.push(
+                    getUserPrefix(user) + "貸出中"
+                );
+            });
+
+            // 予約状況
+            const status = String(item.reservationStatus || "").trim();
+
+            if (
+                status &&
+                status !== "予約なし" &&
+                status !== "該当なし" &&
+                status !== "―"
+            ) {
+                lines.push(
+                    getUserPrefix(item.user) + status
+                );
+            }
+
+            // 予約カート
+            const cartUsers = Array.isArray(item.cartUsers)
+                ? item.cartUsers
+                : [];
+
+            cartUsers.forEach(function (user) {
+                lines.push(
+                    getUserPrefix(user) + "カート済み"
+                );
+            });
+
+            // 貸出中・予約・カートのいずれもない場合
+            if (lines.length === 0) {
+
+                if (
+                    item.found === false ||
+                    status === "該当なし"
+                ) {
+                    return "該当なし";
+                }
+
+                if (
+                    item.found === true &&
+                    (status === "予約なし" || !status)
+                ) {
+                    return "予約なし";
+                }
+
+                return "該当なし";
+            }
+
+            return lines.join("\n");
+        }
+
+        // ===== 予約順位を数値に変換 =====
+        function getRank(item) {
+
+            const value =
+                String(item.reservationRank || "").trim();
+
+            // スラッシュを含む値は期限日
+            if (!value || value.includes("/")) {
+                return Infinity;
+            }
+
+            const match = value.match(/\d+/);
+
+            return match ? Number(match[0]) : Infinity;
+        }
+
+        // ===== 予約カートに追加できる本か =====
+        function canSelectForCart(item) {
+
+            return (
+                item.found === true &&
+                !!item.biblioid &&
+                item.reservationStatus === "予約なし" &&
+                (!Array.isArray(item.lendingUsers) ||
+                    item.lendingUsers.length === 0)
+            );
+        }
+
+        // スラッシュあり：取り置き期限日、なし：予約順位
+        function getReservationRank(item) {
+            const value = String(item.reservationRank || "").trim();
+
+            if (!value || value.includes("/")) {
+                return "";
+            }
+
+            return value;
+        }
+
+        function getHoldDeadline(item) {
+            const value = String(item.reservationRank || "").trim();
+
+            if (value.includes("/")) {
+                return value;
+            }
+
+            return "";
+        }
+
+        // 取り置き期限日を比較用の日付に変換
+        function getDeadlineTime(value) {
+            const text = String(value || "").trim();
+
+            let match = text.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})$/);
+
+            if (match) {
+                return new Date(
+                    Number(match[1]),
+                    Number(match[2]) - 1,
+                    Number(match[3])
+                ).getTime();
+            }
+
+            match = text.match(/^(\d{1,2})[/-](\d{1,2})$/);
+
+            if (match) {
+                const today = new Date();
+
+                return new Date(
+                    today.getFullYear(),
+                    Number(match[1]) - 1,
+                    Number(match[2])
+                ).getTime();
+            }
+
+            return Infinity;
+        }
+
+        // ===== 予約状況の並び替え =====
+        function getStatusSortOrder(item) {
+
+            const status = String(item.reservationStatus || "").trim();
+
+            if (
+                Array.isArray(item.lendingUsers) &&
+                item.lendingUsers.length > 0
+            ) {
+                return 0;
+            }
+
+            if (status === "予約割当済") return 1;
+            if (status === "割当回送中") return 2;
+            if (status === "予約中") return 3;
+
+            // カート済み
+            if (
+                Array.isArray(item.cartUsers) &&
+                item.cartUsers.length > 0
+            ) {
+                return 4;
+            }
+
+            // 予約なし（検索で見つかった本）
+            if (
+                item.found === true &&
+                status === "予約なし"
+            ) {
+                return 5;
+            }
+
+            // 該当なし（検索で見つからなかった本）
+            if (
+                item.found === false ||
+                status === "該当なし" ||
+                !status
+            ) {
+                return 6;
+            }
+
+            return 6;
+        }
+
+        // ==== 「n番目」の数値で並び替え =====
+        function getQueuePosition(item) {
+            const rankNumber = getRank(item);
+            const lending = Number(item.lendingCount) || 0;
+
+            if (lending > 0 && rankNumber > 0) {
+                return Math.ceil(rankNumber / lending);
+            }
+
+            return null;
+        }
+
+        // ===== 予約なし・カート済みの順番 =====
+        function getAvailableQueuePosition(item) {
+
+            const available = Number(item.availableCount) || 0;
+            const reservations = Number(item.reservationCount) || 0;
+            const lending = Number(item.lendingCount) || 0;
+
+            // 貸出可能な本がある場合は順番を表示しない
+            if (available > 0) {
+                return null;
+            }
+
+            // 貸出中の本がある場合は予約数÷貸出数
+            if (lending > 0) {
+                return Math.max(
+                    1,
+                    Math.ceil(reservations / lending)
+                );
+            }
+
+            // 計算できない場合
+            return null;
+        }
+
+        // ===== 検索結果表示 =====
+        function renderResults(data) {
+
+            const results = Array.isArray(data.results)
+                ? data.results
+                : [];
+
+            // 並び替え
+            // 利用者番号の記号を付ける前の状態で並び替える
+            results.sort((a, b) => {
+
+                // まず予約状況の順番
+                const statusDiff =
+                    getStatusSortOrder(a) - getStatusSortOrder(b);
+
+                if (statusDiff !== 0) return statusDiff;
+
+                // 「予約中」同士はn番目で並び替え
+                if (
+                    String(a.reservationStatus || "").trim() === "予約中" &&
+                    String(b.reservationStatus || "").trim() === "予約中"
+                ) {
+                    const aPosition = getQueuePosition(a);
+                    const bPosition = getQueuePosition(b);
+
+                    // n番目がある本を先にする
+                    if (aPosition !== null && bPosition === null) return -1;
+                    if (aPosition === null && bPosition !== null) return 1;
+
+                    // n番目の数値が小さい順
+                    if (
+                        aPosition !== null &&
+                        bPosition !== null &&
+                        aPosition !== bPosition
+                    ) {
+                        return aPosition - bPosition;
+                    }
+                }
+
+                // 同じグループ内はタイトル順
+                return String(a.title || "").localeCompare(
+                    String(b.title || ""),
+                    "ja"
+                );
+            });
+
+            // 予約・貸出状況の集計表示
+            updateReservationSummary(results);
+
+            // 検索件数
+            countElement.textContent = results.length + "件";
+
+            resultsBody.replaceChildren();
+
+            if (results.length === 0) {
+
+                const row = document.createElement("tr");
+                const cell = document.createElement("td");
+
+                cell.colSpan = 8;
+                cell.textContent =
+                    data.message || "データがありません。";
+
+                row.appendChild(cell);
+                resultsBody.appendChild(row);
+
+                updateSelectionSummary();
+                return;
+            }
+
+            // 各書籍の表示
+            results.forEach(function (item) {
+
+                const row = document.createElement("tr");
+
+                const biblioid = String(item.biblioid || "");
+
+                // 選択できない本は選択状態を解除
+                if (!canSelectForCart(item)) {
+                    selectedUsers.delete(biblioid);
+                }
+
+                // 選択中の利用者がすでにカートに入れている場合は解除
+                if (
+                    selectedUsers.has(biblioid) &&
+                    isCartUser(item, selectedUsers.get(biblioid))
+                ) {
+                    selectedUsers.delete(biblioid);
+                }
+
+                // 利用者1・利用者2の選択欄
+                [1, 2].forEach(function (userNumber) {
+
+                    const cell = document.createElement("td");
+                    cell.className = "selection-cell";
+
+                    const radio = document.createElement("input");
+
+                    radio.type = "radio";
+                    radio.name = "cart-" + biblioid;
+                    radio.value = String(userNumber);
+
+                    // その利用者のカートに入っている場合だけ無効化
+                    radio.disabled =
+                        !canSelectForCart(item) ||
+                        isCartUser(item, userNumber);
+
+                    radio.checked =
+                        selectedUsers.get(biblioid) === userNumber;
+
+                    radio.setAttribute(
+                        "aria-label",
+                        "利用者" + userNumber + "の予約カートに追加"
+                    );
+
+                    let wasSelected = false;
+
+                    radio.addEventListener("pointerdown", function () {
+                        wasSelected =
+                            selectedUsers.get(biblioid) === userNumber;
+                    });
+
+                    // 選択中のradioを再クリックしたら選択解除
+                    radio.addEventListener("click", function (event) {
+                        if (wasSelected) {
+                            event.preventDefault();
+
+                            radio.checked = false;
+                            selectedUsers.delete(biblioid);
+
+                            updateSelectionSummary();
+
+                            // ブラウザ側の選択状態も解除
+                            requestAnimationFrame(function () {
+                                radio.checked = false;
+                            });
+                        }
+                    });
+
+                    // 新しく選択した場合
+                    radio.addEventListener("change", function () {
+                        if (radio.checked) {
+                            selectedUsers.set(biblioid, userNumber);
+                            updateSelectionSummary();
+                        }
+                    });
+
+                    cell.appendChild(radio);
+                    row.appendChild(cell);
+                });
+
+                // タイトル
+                const titleCell = document.createElement("td");
+
+                if (item.url) {
+
+                    const link = document.createElement("a");
+
+                    link.href = item.url;
+                    link.target = "_blank";
+                    link.rel = "noopener noreferrer";
+                    link.textContent =
+                        item.title || item.query || "";
+
+                    titleCell.appendChild(link);
+
+                } else {
+                    titleCell.textContent =
+                        item.title || item.query || "";
+                }
+
+                row.appendChild(titleCell);
+
+                // 予約数
+                const reservationCountCell = document.createElement("td");
+                reservationCountCell.textContent = item.reservationCount ?? "―";
+                row.appendChild(reservationCountCell);
+
+                // 貸出可能数
+                const availableCountCell = document.createElement("td");
+                availableCountCell.textContent = item.availableCount ?? "―";
+                row.appendChild(availableCountCell);
+
+                // 貸出数
+                const lendingCountCell = document.createElement("td");
+                lendingCountCell.textContent = item.lendingCount ?? "―";
+                row.appendChild(lendingCountCell);
+
+                // 予約状況
+                const reservationCell = document.createElement("td");
+                reservationCell.className = "status-cell";
+
+                // 並び替え後に利用者番号の記号を付けて表示
+                reservationCell.textContent =
+                    getReservationDisplay(item);
+
+                // 状態に応じてクラスを付与
+                const status = String(item.reservationStatus || "").trim();
+
+                // 予約状況のセルだけに色を付けたい場合は、row.classList.add(...) を reservationCell.classList.add(...) に変える
+                if (
+                    Array.isArray(item.lendingUsers) &&
+                    item.lendingUsers.length > 0
+                ) {
+                    row.classList.add("is-lending");
+
+                } else if (status === "予約割当済") {
+                    row.classList.add("is-assigned");
+
+                } else if (status === "割当回送中") {
+                    row.classList.add("is-forwarding");
+                }
+
+                row.appendChild(reservationCell);
+
+                // 並び替え後に利用者番号の記号を付けて表示
+                reservationCell.textContent =
+                    getReservationDisplay(item);
+
+                // 予約順位・返却期限日
+                const rankCell = document.createElement("td");
+
+                const rank = getReservationRank(item);
+                const holdDeadline = getHoldDeadline(item);
+
+                const rankLines = [];
+
+                // 貸出中の返却期限日
+                const lendingDeadline =
+                    String(item.lendingDeadline || "").trim();
+
+                if (lendingDeadline) {
+                    rankLines.push(lendingDeadline);
+                }
+
+                // 従来の取り置き期限日
+                if (holdDeadline) {
+
+                    rankLines.push(holdDeadline);
+
+                } else if (rank) {
+
+                    const rankNumber = Number(
+                        (rank.match(/\d+/) || [0])[0]
+                    );
+
+                    let rankText = /^\d+位/.test(rank)
+                        ? rank
+                        : rankNumber + "位";
+
+                    const lending = Number(item.lendingCount || 0);
+
+                    if (lending > 0 && rankNumber > 0) {
+                        rankText += "（" +
+                            Math.ceil(rankNumber / lending) +
+                            "番目）";
+                    }
+
+                    rankLines.push(rankText);
+                }
+
+                // 予約なし・カート済みの場合の順番
+                if (
+                    String(item.reservationStatus || "").trim() === "予約なし" &&
+                    (!Array.isArray(item.lendingUsers) || item.lendingUsers.length === 0)
+                ) {
+                    const position = getAvailableQueuePosition(item);
+
+                    if (position !== null) {
+                        rankLines.push("（" + position + "番目）");
+                    }
+                }
+
+                rankCell.textContent =
+                    rankLines.length > 0
+                        ? rankLines.join("\n")
+                        : "―";
+
+                rankCell.style.whiteSpace = "pre-line";
+
+                row.appendChild(rankCell);
+
+                resultsBody.appendChild(row);
+            });
+            updateSelectionSummary();
+        }
+
+        // ===== 予約・貸出状況の集計 =====
+        function updateReservationSummary(results) {
+
+            [1, 2].forEach(function (user) {
+
+                // その利用者の予約情報
+                const userResults = results.filter(function (item) {
+                    return Number(item.user) === user &&
+                        item.reservationStatus !== "予約なし" &&
+                        item.reservationStatus !== "該当なし" &&
+                        item.reservationStatus !== "―" &&
+                        String(item.reservationStatus || "").trim() !== "";
+                });
+
+                // カート済み冊数
+                const cartCount = results.filter(function (item) {
+                    return isCartUser(item, user);
+                }).length;
+
+                // 予約合計（予約中・回送中・割当済など）
+                const reservationCount = userResults.length;
+
+                // 予約中
+                const waitingCount = userResults.filter(function (item) {
+                    return item.reservationStatus === "予約中";
+                }).length;
+
+                // 割当回送中
+                const forwardingCount = userResults.filter(function (item) {
+                    return item.reservationStatus === "割当回送中";
+                }).length;
+
+                // 予約割当済
+                const assignedCount = userResults.filter(function (item) {
+                    return item.reservationStatus === "予約割当済";
+                }).length;
+
+                // 貸出中
+                const lendingCount = results.filter(function (item) {
+                    return Array.isArray(item.lendingUsers) &&
+                        item.lendingUsers.map(Number).includes(user);
+                }).length;
+
+                // 表示先のID
+                const prefix = "user" + user;
+
+                // カート済み（上限10冊）
+                document.getElementById(prefix + "Cart").textContent =
+                    cartCount + "（残" + Math.max(0, 10 - cartCount) + "）";
+
+                // 予約合計（上限10冊）
+                document.getElementById(prefix + "Reservation").textContent =
+                    reservationCount + "（残" +
+                    Math.max(0, 10 - reservationCount) + "）";
+
+                // 予約状態別の冊数
+                document.getElementById(prefix + "Waiting").textContent =
+                    waitingCount;
+
+                document.getElementById(prefix + "Forwarding").textContent =
+                    forwardingCount;
+
+                document.getElementById(prefix + "Assigned").textContent =
+                    assignedCount;
+
+                document.getElementById(prefix + "Lending").textContent =
+                    lendingCount;
+            });
+        }
+
+        // ===== カート選択冊数表示 =====
+        function updateSelectionSummary() {
+
+            let user1Count = 0;
+            let user2Count = 0;
+
+            selectedUsers.forEach(function (user) {
+                if (user === 1) user1Count++;
+                if (user === 2) user2Count++;
+            });
+
+            document.getElementById("user1Selected").textContent =
+                user1Count;
+
+            document.getElementById("user2Selected").textContent =
+                user2Count;
+        }
+
+        // ===== 更新日時表示 =====
+        function showUpdatedAt(value) {
+
+            if (!value) return;
+
+            const date = new Date(value);
+
+            if (Number.isNaN(date.getTime())) return;
+
+            updatedAtElement.textContent =
+                "　更新：" + date.toLocaleString("ja-JP");
+        }
+
+        // ===== 状態表示 =====
+        function showStatus(text) {
+            statusElement.textContent = text;
+        }
+
+        // ===== 起動 =====
+        initialize();
+
+    </script>
+
+</body>
+
+</html>

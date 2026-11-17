@@ -130,26 +130,22 @@
         .results-table td:nth-child(5),
         .results-table th:nth-child(6),
         .results-table td:nth-child(6) {
-            width: 3%;
+            width: 4%;
         }
 
         /* タイトル */
         .results-table th:nth-child(3),
         .results-table td:nth-child(3) {
-            width: 25%;
+            width: 23%;
             text-align: left;
         }
 
-        /* 予約状況 */
+        /* 予約状況、予約順位・取置期限日・返却期限日 */
         .results-table th:nth-child(7),
-        .results-table td:nth-child(7) {
-            width: 12%;
-        }
-
-        /* 予約順位・取置期限日・返却期限日 */
+        .results-table td:nth-child(7),
         .results-table th:nth-child(8),
         .results-table td:nth-child(8) {
-            width: 14%;
+            width: 13%;
         }
 
         .results-table td.selection-cell input {
@@ -297,7 +293,7 @@
             <thead>
                 <tr>
                     <th>利用者</th>
-                    <th>カート選択</th>
+                    <th>選択</th>
                     <th>カート済み</th>
                     <th>予約合計</th>
                     <th>予約中</th>
@@ -893,8 +889,14 @@
                 );
             });
 
-            // 予約状況
+            // 予約状況（表示用に短縮）
             const status = String(item.reservationStatus || "").trim();
+
+            const statusLabels = {
+                "予約割当済": "割当済",
+                "割当回送中": "回送中",
+                "予約中": "予約中"
+            };
 
             if (
                 status &&
@@ -903,7 +905,8 @@
                 status !== "―"
             ) {
                 lines.push(
-                    getUserPrefix(item.user) + status
+                    getUserPrefix(item.user) +
+                    (statusLabels[status] || status)
                 );
             }
 
@@ -914,7 +917,7 @@
 
             cartUsers.forEach(function (user) {
                 lines.push(
-                    getUserPrefix(user) + "カート済み"
+                    getUserPrefix(user) + "カート"
                 );
             });
 
@@ -1354,7 +1357,7 @@
                     if (lending > 0 && rankNumber > 0) {
                         rankText += "（" +
                             Math.ceil(rankNumber / lending) +
-                            "番目）";
+                            "番）";
                     }
 
                     rankLines.push(rankText);
@@ -1368,7 +1371,7 @@
                     const position = getAvailableQueuePosition(item);
 
                     if (position !== null) {
-                        rankLines.push("（" + position + "番目）");
+                        rankLines.push("（" + position + "番）");
                     }
                 }
 

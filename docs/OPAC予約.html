@@ -283,14 +283,7 @@
 
     </form>
 
-    <iframe name="gasFrame" id="gasFrame" style="
-        display:block;
-        width:100%;
-        height:150px;
-        border:1px solid red;
-        margin-top:10px;
-    ">
-    </iframe>
+    <iframe name="gasFrame" id="gasFrame" style="display:none"></iframe>
 
     <p id="status"></p>
 
@@ -436,6 +429,7 @@
         // ===== 状態 =====
         let currentNonce = "";
         let currentAction = "";
+        let currentGasUrl = "";
         let waiting = false;
         let responseTimer = null;
 
@@ -583,7 +577,8 @@
                     ? JSON.stringify(currentData.results)
                     : "";
 
-            form.action = gasUrl;
+            currentGasUrl = gasUrl;
+            form.action = currentGasUrl;
 
             waiting = true;
             setButtonsDisabled(true);
@@ -672,12 +667,12 @@
 
             const script = document.createElement("script");
 
-            const separator = form.action.includes("?")
+            const separator = currentGasUrl.indexOf("?") >= 0
                 ? "&"
                 : "?";
 
             script.src =
-                form.action +
+                currentGasUrl +
                 separator +
                 "action=poll" +
                 "&nonce=" + encodeURIComponent(currentNonce) +

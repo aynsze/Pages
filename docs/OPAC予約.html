@@ -25,7 +25,7 @@
             width: 100%;
             box-sizing: border-box;
             padding: 8px;
-            margin-bottom: 10px;
+            margin-bottom: 7px;
         }
 
         #extraTitles {
@@ -130,22 +130,26 @@
         .results-table td:nth-child(5),
         .results-table th:nth-child(6),
         .results-table td:nth-child(6) {
-            width: 4%;
+            width: 5%;
         }
 
         /* タイトル */
         .results-table th:nth-child(3),
         .results-table td:nth-child(3) {
-            width: 23%;
+            width: 30%;
             text-align: left;
         }
 
-        /* 予約状況、予約順位・取置期限日・返却期限日 */
+        /* 予約状況 */
         .results-table th:nth-child(7),
-        .results-table td:nth-child(7),
+        .results-table td:nth-child(7) {
+            width: 12%;
+        }
+
+        /* 予約順位・取置期限日・返却期限日 */
         .results-table th:nth-child(8),
         .results-table td:nth-child(8) {
-            width: 13%;
+            width: 15%;
         }
 
         .results-table td.selection-cell input {
@@ -155,7 +159,7 @@
 
         input[type="radio"]:disabled {
             /* display: none; */
-            opacity: 0.25;
+            opacity: 0.15;
             cursor: not-allowed;
         }
 

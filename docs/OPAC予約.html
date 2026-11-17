@@ -424,6 +424,19 @@
         const resultsBody =
             document.getElementById("resultsBody");
 
+        const gasFrame = document.getElementById("gasFrame");
+        let gasFrameLoaded = false;
+
+        gasFrame.addEventListener("load", function () {
+            if (!waiting) return;
+
+            gasFrameLoaded = true;
+
+            showStatus(
+                "診断：GASの応答画面を読み込みました。"
+            );
+        });
+
         // ===== 状態 =====
         let currentNonce = "";
         let currentAction = "";
@@ -596,24 +609,40 @@
 
             responseTimer = setTimeout(function () {
 
-                const wasWaiting = waiting;
+                if (!waiting) return;
+                const loaded = gasFrameLoaded;
+                finishRequest();
 
-                showStatus(
-                    "診断：10秒タイマーが動作しました。waiting=" + wasWaiting
-                );
+                if (loaded) {
+                    showStatus(
+                        "タイムアウト：GASからの画面応答は届きましたが、" +
+                        "検索結果を受信できませんでした。"
+                    );
+                } else {
+                    showStatus(
+                        "タイムアウト：GASの応答画面が読み込まれていません。"
+                    );
+                }
 
-                if (!wasWaiting) return;
+            }, 200000);
+
+            gasFrameLoaded = false;
+            form.target = "gasFrame";
+
+            // フォーム送信
+            try {
+                HTMLFormElement.prototype.submit.call(form);
+            } catch (error) {
 
                 finishRequest();
 
                 showStatus(
-                    "診断：タイムアウト処理まで実行されました。"
+                    "送信エラー：" +
+                    String(error.message || error)
                 );
 
-            }, 10000);
-
-            // フォーム送信
-            HTMLFormElement.prototype.submit.call(form);
+                console.error("[送信診断]", error);
+            }
         }
 
         // ===== 識別番号作成 =====

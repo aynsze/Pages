@@ -25,11 +25,12 @@
             width: 100%;
             box-sizing: border-box;
             padding: 8px;
-            margin-bottom: 7px;
+            margin-bottom: 10px;
         }
 
         #extraTitles {
             resize: vertical;
+            margin-bottom: 0;
         }
 
         button {
@@ -86,6 +87,10 @@
 
         .summary-table td:nth-child(4) {
             background: #e8f5e9;
+        }
+
+        .summary-table td:nth-child(7) {
+            background-color: #e8f3ff;
         }
 
         .summary-table td:nth-child(3),
@@ -159,7 +164,7 @@
 
         input[type="radio"]:disabled {
             /* display: none; */
-            opacity: 0.15;
+            opacity: 0.2;
             cursor: not-allowed;
         }
 
@@ -228,21 +233,23 @@
             /* ===== 検索結果表 ===== */
             .results-table th,
             .results-table td {
-                padding: 6px 3px;
+                padding: 2px;
             }
 
             .results-table th:nth-child(1),
             .results-table th:nth-child(2) {
                 padding: 3px;
-                font-size: 1.4em;
+                font-size: 1.5em;
             }
 
-            .results-table td:nth-child(3) {
+            .results-table td:nth-child(3),
+            .results-table td:nth-child(7) {
+                padding: 5px 3px;
                 font-size: 1.15em;
             }
 
             .results-table td.selection-cell input {
-                transform: scale(0.8);
+                transform: scale(0.7);
             }
         }
     </style>
@@ -297,7 +304,7 @@
             <thead>
                 <tr>
                     <th>利用者</th>
-                    <th>選択</th>
+                    <th>選択中</th>
                     <th>カート済み</th>
                     <th>予約合計</th>
                     <th>予約中</th>

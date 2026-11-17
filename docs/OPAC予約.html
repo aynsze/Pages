@@ -197,10 +197,31 @@
                 font-size: 0.8rem;
             }
 
+            #status {
+                margin: 5px 0;
+            }
+
             table {
                 font-size: 0.5rem;
             }
 
+            /* ===== 予約・貸出状況の集計表 ===== */
+            .summary-table th {
+                padding: 7px 0;
+            }
+
+            .summary-table tbody th:nth-child(1),
+            .summary-table td {
+                padding: 5px 0;
+                font-size: 1.3em;
+            }
+
+            .summary-table td:nth-child(3),
+            .summary-table td:nth-child(4) {
+                padding: 0 0 0 8px;
+            }
+
+            /* ===== 検索結果表 ===== */
             .results-table th,
             .results-table td {
                 padding: 6px 3px;
@@ -212,20 +233,6 @@
 
             .results-table td.selection-cell input {
                 transform: scale(0.8);
-            }
-
-            .summary-table th {
-                padding: 7px 0;
-            }
-
-            .summary-table td {
-                padding: 0;
-                font-size: 1.3em;
-            }
-
-            .summary-table td:nth-child(3),
-            .summary-table td:nth-child(4) {
-                padding: 0 0 0 8px;
             }
         }
     </style>
@@ -240,9 +247,7 @@
     <input type="password" id="passwordInput" placeholder="OPAC共通パスワード" maxlength="15" autocomplete="current-password">
 
     <!-- 追加の検索条件 -->
-    <div>
-        <textarea id="extraTitles" rows="2" placeholder="追加で検索する書名・ISBN（カンマ区切り）"></textarea>
-    </div>
+    <textarea id="extraTitles" rows="2" placeholder="追加で検索する書名・ISBN（カンマ区切り）"></textarea>
 
     <!-- GASへ送信するフォーム -->
     <form id="requestForm" method="post" target="gasFrame">
@@ -591,22 +596,21 @@
 
             responseTimer = setTimeout(function () {
 
-                if (!waiting) return;
-                const loaded = gasFrameLoaded;
+                const wasWaiting = waiting;
+
+                showStatus(
+                    "診断：10秒タイマーが動作しました。waiting=" + wasWaiting
+                );
+
+                if (!wasWaiting) return;
+
                 finishRequest();
 
-                if (loaded) {
-                    showStatus(
-                        "タイムアウト：GASからの画面応答は届きましたが、" +
-                        "検索結果を受信できませんでした。"
-                    );
-                } else {
-                    showStatus(
-                        "タイムアウト：GASの応答画面が読み込まれていません。"
-                    );
-                }
+                showStatus(
+                    "診断：タイムアウト処理まで実行されました。"
+                );
 
-            }, 200000);
+            }, 10000);
 
             // フォーム送信
             HTMLFormElement.prototype.submit.call(form);

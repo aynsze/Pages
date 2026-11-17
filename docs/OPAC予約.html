@@ -7,7 +7,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <!-- <meta name="viewport" content="width=device-width, initial-scale=1"> -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>OPAC予約</title>
 
     <style>
@@ -71,13 +71,11 @@
         .summary-table {
             margin-top: 0;
             table-layout: auto;
-            font-size: 0.9rem;
         }
 
         .summary-table th,
         .summary-table td {
             padding: 7px 5px;
-            vertical-align: middle;
             white-space: nowrap;
         }
 
@@ -110,7 +108,7 @@
         .results-table th,
         .results-table td {
             padding: 8px;
-            vertical-align: top;
+            /* vertical-align: top; */
             overflow-wrap: anywhere;
         }
 
@@ -196,15 +194,38 @@
         @media (max-width: 600px) {
             body {
                 margin-top: 20px;
+                font-size: 0.8rem;
             }
 
             table {
-                font-size: 0.85rem;
+                font-size: 0.5rem;
             }
 
             .results-table th,
             .results-table td {
-                padding: 7px;
+                padding: 6px 3px;
+            }
+
+            .results-table td:nth-child(3) {
+                font-size: 1.15em;
+            }
+
+            .results-table td.selection-cell input {
+                transform: scale(0.8);
+            }
+
+            .summary-table th {
+                padding: 7px 0;
+            }
+
+            .summary-table td {
+                padding: 0;
+                font-size: 1.3em;
+            }
+
+            .summary-table td:nth-child(3),
+            .summary-table td:nth-child(4) {
+                padding: 0 0 0 8px;
             }
         }
     </style>
@@ -247,7 +268,15 @@
 
     </form>
 
-    <iframe name="gasFrame" id="gasFrame" style="display:none"></iframe>
+    <iframe name="gasFrame" id="gasFrame" style="
+        position:absolute;
+        width:1px;
+        height:1px;
+        left:-10000px;
+        top:0;
+        border:0;
+    ">
+    </iframe>
 
     <p id="status"></p>
 
@@ -563,13 +592,19 @@
             responseTimer = setTimeout(function () {
 
                 if (!waiting) return;
-
+                const loaded = gasFrameLoaded;
                 finishRequest();
 
-                showStatus(
-                    "タイムアウト。GASから応答がありません。\n" +
-                    "GASのURL、デプロイ設定、通信状態を確認してください。"
-                );
+                if (loaded) {
+                    showStatus(
+                        "タイムアウト：GASからの画面応答は届きましたが、" +
+                        "検索結果を受信できませんでした。"
+                    );
+                } else {
+                    showStatus(
+                        "タイムアウト：GASの応答画面が読み込まれていません。"
+                    );
+                }
 
             }, 200000);
 

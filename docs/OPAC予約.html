@@ -1,5 +1,5 @@
 <!-- 単独HTML/OPAC予約.html -->
-<!-- bk10 -->
+<!-- bk11 -->
 <!-- 市立図書館のOPAC予約 -->
 
 <!DOCTYPE html>
@@ -217,7 +217,7 @@
 
             .summary-table tbody th:nth-child(1) {
                 padding: 0;
-                font-size: 1.5em;
+                font-size: 1.6em;
             }
 
             .summary-table td:nth-child(3),
@@ -229,6 +229,12 @@
             .results-table th,
             .results-table td {
                 padding: 6px 3px;
+            }
+
+            .results-table th:nth-child(1),
+            .results-table th:nth-child(2) {
+                padding: 3px;
+                font-size: 1.4em;
             }
 
             .results-table td:nth-child(3) {
@@ -427,19 +433,6 @@
         const resultsBody =
             document.getElementById("resultsBody");
 
-        const gasFrame = document.getElementById("gasFrame");
-        let gasFrameLoaded = false;
-
-        gasFrame.addEventListener("load", function () {
-            if (!waiting) return;
-
-            gasFrameLoaded = true;
-
-            showStatus(
-                "診断：GASの応答画面を読み込みました。"
-            );
-        });
-
         // ===== 状態 =====
         let currentNonce = "";
         let currentAction = "";
@@ -611,30 +604,25 @@
             clearTimeout(responseTimer);
 
             responseTimer = setTimeout(function () {
-
                 if (!waiting) return;
-                const loaded = gasFrameLoaded;
+
+                clearTimeout(gasPollTimer);
                 finishRequest();
 
-                if (loaded) {
-                    showStatus(
-                        "タイムアウト：GASからの画面応答は届きましたが、" +
-                        "検索結果を受信できませんでした。"
-                    );
-                } else {
-                    showStatus(
-                        "タイムアウト：GASの応答画面が読み込まれていません。"
-                    );
-                }
-
+                showStatus(
+                    "タイムアウト：GASから結果を受信できませんでした。"
+                );
             }, 200000);
 
-            gasFrameLoaded = false;
             form.target = "gasFrame";
 
             // フォーム送信
             try {
                 HTMLFormElement.prototype.submit.call(form);
+                gasPollTimer = setTimeout(
+                    requestGasResult,
+                    1000
+                );
             } catch (error) {
 
                 finishRequest();
@@ -662,28 +650,79 @@
                 Math.random().toString(36).substring(2);
         }
 
-        // ===== GASからの応答 =====
-        window.addEventListener("message", function (event) {
-            console.log("[受信診断] event.data:", event.data);
+        // ===== GASの結果を受け取る（JSONP）=====
+        let gasPollTimer = null;
+        let gasPollResponseReceived = false;
 
-            let data = event.data;
-
-            // 文字列で届いた場合にも対応
-            if (typeof data === "string") {
-                try {
-                    data = JSON.parse(data);
-                } catch (error) {
-                    return;
-                }
-            }
-
-            if (!data || typeof data !== "object") return;
-            if (data.nonce !== currentNonce) return;
+        function scheduleGasPoll() {
             if (!waiting) return;
 
+            clearTimeout(gasPollTimer);
+
+            gasPollTimer = setTimeout(
+                requestGasResult,
+                1500
+            );
+        }
+
+        function requestGasResult() {
+            if (!waiting) return;
+
+            gasPollResponseReceived = false;
+
+            const script = document.createElement("script");
+
+            const separator = form.action.includes("?")
+                ? "&"
+                : "?";
+
+            script.src =
+                form.action +
+                separator +
+                "action=poll" +
+                "&nonce=" + encodeURIComponent(currentNonce) +
+                "&t=" + Date.now();
+
+            script.onerror = function () {
+                script.remove();
+                scheduleGasPoll();
+            };
+
+            script.onload = function () {
+                script.remove();
+
+                // 読み込みは完了したが、GASからの
+                // JSONPコールバックが呼ばれなかった場合
+                if (!gasPollResponseReceived) {
+                    scheduleGasPoll();
+                }
+            };
+
+            document.head.appendChild(script);
+        }
+
+        // GASから呼び出される関数
+        window.gasResultCallback = function (data) {
+            gasPollResponseReceived = true;
+
+            if (!waiting) return;
+
+            if (!data || data.ready !== true) {
+                scheduleGasPoll();
+                return;
+            }
+
+            const message = data.response;
+
+            if (!message || message.nonce !== currentNonce) {
+                scheduleGasPoll();
+                return;
+            }
+
+            clearTimeout(gasPollTimer);
             finishRequest();
 
-            const payload = data.payload;
+            const payload = message.payload;
 
             if (!payload || payload.success !== true) {
                 showStatus(
@@ -773,7 +812,7 @@
 
                 showStatus("✅ 予約状況だけの更新が完了しました。");
             }
-        });
+        };
 
         // ===== 結果保存 =====
         function saveResults(data) {
@@ -804,6 +843,7 @@
             waiting = false;
 
             clearTimeout(responseTimer);
+            clearTimeout(gasPollTimer);
 
             setButtonsDisabled(false);
 

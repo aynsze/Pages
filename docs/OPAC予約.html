@@ -1,5 +1,5 @@
 <!-- 単独HTML/OPAC予約.html -->
-<!-- bk11 -->
+<!-- bk13 -->
 <!-- 市立図書館のOPAC予約 -->
 
 <!DOCTYPE html>
@@ -212,11 +212,11 @@
 
             /* ===== 予約・貸出状況の集計表 ===== */
             .summary-table th {
-                padding: 7px 0;
+                padding: 6.5px 0;
             }
 
             .summary-table tbody td {
-                padding: 5px 0;
+                padding: 4.5px 0;
                 font-size: 1.3em;
             }
 
@@ -1007,27 +1007,24 @@
         // 取り置き期限日を比較用の日付に変換
         function getDeadlineTime(value) {
             const text = String(value || "").trim();
+            const match = text.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
 
-            let match = text.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})$/);
+            if (!match) return Infinity;
 
-            if (match) {
-                return new Date(
-                    Number(match[1]),
-                    Number(match[2]) - 1,
-                    Number(match[3])
-                ).getTime();
+            return new Date(
+                Number(match[1]),
+                Number(match[2]) - 1,
+                Number(match[3])
+            ).getTime();
+        }
+
+        function getStatusDeadlineTime(item) {
+            if (Array.isArray(item.lendingUsers) && item.lendingUsers.length > 0) {
+                return getDeadlineTime(item.lendingDeadline);
             }
 
-            match = text.match(/^(\d{1,2})[/-](\d{1,2})$/);
-
-            if (match) {
-                const today = new Date();
-
-                return new Date(
-                    today.getFullYear(),
-                    Number(match[1]) - 1,
-                    Number(match[2])
-                ).getTime();
+            if (String(item.reservationStatus || "").trim() === "予約割当済") {
+                return getDeadlineTime(getHoldDeadline(item));
             }
 
             return Infinity;
@@ -1123,14 +1120,23 @@
             // 並び替え
             // 利用者番号の記号を付ける前の状態で並び替える
             results.sort((a, b) => {
+                const aOrder = getStatusSortOrder(a);
+                const bOrder = getStatusSortOrder(b);
 
-                // まず予約状況の順番
-                const statusDiff =
-                    getStatusSortOrder(a) - getStatusSortOrder(b);
-
+                const statusDiff = aOrder - bOrder;
                 if (statusDiff !== 0) return statusDiff;
 
-                // 「予約中」同士はn番目で並び替え
+                // 貸出中・割当済は期限日が早い順
+                if (aOrder === 0 || aOrder === 1) {
+                    const aDeadline = getStatusDeadlineTime(a);
+                    const bDeadline = getStatusDeadlineTime(b);
+
+                    if (aDeadline !== bDeadline) {
+                        return aDeadline - bDeadline;
+                    }
+                }
+
+                // 予約中は予約順位から計算した順番
                 if (
                     String(a.reservationStatus || "").trim() === "予約中" &&
                     String(b.reservationStatus || "").trim() === "予約中"
